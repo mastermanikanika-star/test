@@ -17,6 +17,8 @@ set "PYTHON_INSTALLER_URL=https://www.python.org/ftp/python/%PYTHON_VERSION%/pyt
 set "TEMP_DIR=%TEMP%\%APP_NAME%_Installer"
 set "SOURCE_FILE=%TEMP_DIR%\app_source.py"
 set "DIST_EXE=%TEMP_DIR%\dist\%APP_NAME%.exe"
+set "VERSION_FILE=%INSTALL_DIR%\version.xml"
+set "CURRENT_VERSION=1.0.0"
 
 :: Create Temp Directory
 if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
@@ -35,9 +37,28 @@ echo  %APP_NAME% Installation Started
 echo ==========================================
 
 :: -----------------------------------------------------------------------------
+:: Step 0: Check for Existing Installation and Version
+:: -----------------------------------------------------------------------------
+set "DO_UPDATE=false"
+if exist "%VERSION_FILE%" (
+    echo [0/6] Existing installation detected. Checking version...
+    for /f "tokens=2 delims=<>" %%a in ('findstr /C:"<version>" "%VERSION_FILE%"') do set "INSTALLED_VERSION=%%a"
+    echo Installed version: %INSTALLED_VERSION%
+    echo New version: %CURRENT_VERSION%
+    if "!INSTALLED_VERSION!"=="%CURRENT_VERSION%" (
+        echo Versions match. Performing repair installation...
+    ) else (
+        echo Version mismatch. Proceeding with update...
+        set "DO_UPDATE=true"
+    )
+) else (
+    echo [0/6] No existing installation found. Proceeding with fresh install...
+)
+
+:: -----------------------------------------------------------------------------
 :: Step 1: Check and Install Python
 :: -----------------------------------------------------------------------------
-echo [1/5] Checking for Python installation...
+echo [1/6] Checking for Python installation...
 python --version >nul 2>&1
 if %errorLevel% neq 0 (
     echo Python not found. Downloading Python %PYTHON_VERSION%...
@@ -64,7 +85,7 @@ if %errorLevel% neq 0 (
 :: -----------------------------------------------------------------------------
 :: Step 2: Install PyInstaller
 :: -----------------------------------------------------------------------------
-echo [2/5] Ensuring PyInstaller is installed...
+echo [2/6] Ensuring PyInstaller is installed...
 pip install pyinstaller --quiet
 if %errorLevel% neq 0 (
     echo WARNING: pip install had issues, trying to proceed anyway...
@@ -73,10 +94,31 @@ if %errorLevel% neq 0 (
 :: -----------------------------------------------------------------------------
 :: Step 3: Extract Embedded Source Code
 :: -----------------------------------------------------------------------------
-echo [3/5] Extracting application source code...
+echo [3/6] Extracting application source code...
 
-:: Use PowerShell to robustly extract the embedded Python code
-powershell -Command "$content = Get-Content '%~f0' -Raw; $startMarker = '__PYTHON_SOURCE_START__'; $endMarker = '__PYTHON_SOURCE_END__'; $startIndex = $content.IndexOf($startMarker); $endIndex = $content.IndexOf($endMarker); if ($startIndex -ge 0 -and $endIndex -gt $startIndex) { $codeStart = $startIndex + $startMarker.Length; $codeLength = $endIndex - $codeStart; $code = $content.Substring($codeStart, $codeLength); Set-Content -Path '%SOURCE_FILE%' -Value $code -Encoding UTF8; Write-Host 'Source code extracted successfully.' } else { Write-Error 'Could not find source code markers in batch file.'; exit 1 }"
+:: Use PowerShell to extract the embedded Python code using a temporary script
+set "PS_SCRIPT=%TEMP_DIR%\extract.ps1"
+(
+echo $batFile = '%~f0'
+echo $sourceFile = '%SOURCE_FILE%'
+echo $content = Get-Content $batFile -Raw -Encoding UTF8
+echo $startMarker = '__PYTHON_SOURCE_START__'
+echo $endMarker = '__PYTHON_SOURCE_END__'
+echo $startIndex = $content.IndexOf($startMarker)
+echo $endIndex = $content.IndexOf($endMarker)
+echo if ($startIndex -ge 0 -and $endIndex -gt $startIndex) {
+echo     $codeStart = $startIndex + $startMarker.Length
+echo     $codeLength = $endIndex - $codeStart
+echo     $code = $content.Substring($codeStart, $codeLength)
+echo     Set-Content -Path $sourceFile -Value $code -Encoding UTF8 -NoNewline
+echo     Write-Host 'Source code extracted successfully.'
+echo } else {
+echo     Write-Error 'Could not find source code markers in batch file.'
+echo     exit 1
+echo }
+) > "%PS_SCRIPT%"
+
+powershell -ExecutionPolicy Bypass -File "%PS_SCRIPT%"
 
 if not exist "%SOURCE_FILE%" (
     echo ERROR: Failed to extract source code.
@@ -87,7 +129,7 @@ if not exist "%SOURCE_FILE%" (
 :: -----------------------------------------------------------------------------
 :: Step 4: Compile to EXE
 :: -----------------------------------------------------------------------------
-echo [4/5] Compiling application to executable...
+echo [4/6] Compiling application to executable...
 pyinstaller --onefile --windowed --name "%APP_NAME%" --distpath "%TEMP_DIR%\dist" --workpath "%TEMP_DIR%\build" --specpath "%TEMP_DIR%" "%SOURCE_FILE%"
 
 if not exist "%DIST_EXE%" (
@@ -100,13 +142,26 @@ echo Compilation successful.
 :: -----------------------------------------------------------------------------
 :: Step 5: Install to Program Files & Create Shortcuts
 :: -----------------------------------------------------------------------------
-echo [5/5] Installing to %INSTALL_DIR%...
+echo [5/6] Installing to %INSTALL_DIR%...
 
 :: Create Install Directory
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 :: Copy EXE
 copy /Y "%DIST_EXE%" "%INSTALL_DIR%\%APP_NAME%.exe"
+
+:: Create version.xml file
+echo [6/6] Creating version file...
+(
+echo ^<?xml version="1.0" encoding="UTF-8"?^>
+echo ^<application^>
+echo     ^<name^>%APP_NAME%^</name^>
+echo     ^<version^>%CURRENT_VERSION%^</version^>
+echo     ^<install_date^>%date% %time%^</install_date^>
+echo     ^<executable^>%INSTALL_DIR%\%APP_NAME%.exe^</executable^>
+echo ^</application^>
+) > "%VERSION_FILE%"
+echo Version file created: %VERSION_FILE%
 
 :: Create Start Menu Shortcut
 set "START_MENU_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
@@ -121,7 +176,12 @@ powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut 
 echo ==========================================
 echo  Installation Complete!
 echo  Location: %INSTALL_DIR%
+echo  Version: %CURRENT_VERSION%
 echo ==========================================
+
+:: Launch the application
+echo Launching %APP_NAME%...
+start "" "%INSTALL_DIR%\%APP_NAME%.exe"
 
 goto Cleanup
 
