@@ -148,7 +148,22 @@ echo [5/6] Installing to %INSTALL_DIR%...
 if not exist "%INSTALL_DIR%" mkdir "%INSTALL_DIR%"
 
 :: Copy EXE
+echo Copying executable...
 copy /Y "%DIST_EXE%" "%INSTALL_DIR%\%APP_NAME%.exe"
+if %errorLevel% neq 0 (
+    echo ERROR: Failed to copy executable.
+    pause
+    goto Cleanup
+)
+
+:: Verify the executable was copied successfully
+if not exist "%INSTALL_DIR%\%APP_NAME%.exe" (
+    echo ERROR: Executable not found after copy operation.
+    pause
+    goto Cleanup
+)
+
+echo Executable copied successfully.
 
 :: Create version.xml file
 echo [6/6] Creating version file...
@@ -164,14 +179,26 @@ echo ^</application^>
 echo Version file created: %VERSION_FILE%
 
 :: Create Start Menu Shortcut
+echo Creating Start Menu shortcut...
 set "START_MENU_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs"
 if not exist "%START_MENU_DIR%\%APP_NAME%" mkdir "%START_MENU_DIR%\%APP_NAME%"
 
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%START_MENU_DIR%\%APP_NAME%\%APP_NAME%.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\%APP_NAME%.exe'; $Shortcut.Save()"
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%START_MENU_DIR%\%APP_NAME%\%APP_NAME%.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\%APP_NAME%.exe'; $Shortcut.WorkingDirectory = '%INSTALL_DIR%'; $Shortcut.Save()"
+if %errorLevel% neq 0 (
+    echo WARNING: Failed to create Start Menu shortcut.
+) else (
+    echo Start Menu shortcut created.
+)
 
 :: Create Desktop Shortcut
+echo Creating Desktop shortcut...
 set "DESKTOP_DIR=%USERPROFILE%\Desktop"
-powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP_DIR%\%APP_NAME%.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\%APP_NAME%.exe'; $Shortcut.Save()"
+powershell -Command "$WshShell = New-Object -comObject WScript.Shell; $Shortcut = $WshShell.CreateShortcut('%DESKTOP_DIR%\%APP_NAME%.lnk'); $Shortcut.TargetPath = '%INSTALL_DIR%\%APP_NAME%.exe'; $Shortcut.WorkingDirectory = '%INSTALL_DIR%'; $Shortcut.Save()"
+if %errorLevel% neq 0 (
+    echo WARNING: Failed to create Desktop shortcut.
+) else (
+    echo Desktop shortcut created.
+)
 
 echo ==========================================
 echo  Installation Complete!
@@ -181,7 +208,14 @@ echo ==========================================
 
 :: Launch the application
 echo Launching %APP_NAME%...
-start "" "%INSTALL_DIR%\%APP_NAME%.exe"
+timeout /t 2 /nobreak >nul
+if exist "%INSTALL_DIR%\%APP_NAME%.exe" (
+    start "" "%INSTALL_DIR%\%APP_NAME%.exe"
+    echo Application launched successfully.
+) else (
+    echo ERROR: Could not find the application executable to launch.
+    echo Please check: %INSTALL_DIR%\%APP_NAME%.exe
+)
 
 goto Cleanup
 
