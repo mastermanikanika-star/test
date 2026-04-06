@@ -1,0 +1,45 @@
+```
+# Compiled and build artifacts
+*.pyc
+__pycache__/
+
+# Logs and temp files
+*.log
+*.tmp
+
+# Environment
+.env
+.env.local
+*.env.*
+
+# Editors
+.vscode/
+.idea/
+
+# Windows-specific temp files
+*.swp
+*.swo
+
+# Build/dist directories
+dist/
+build/
+target/
+
+# Dependencies
+.venv/
+venv/
+node_modules/
+
+# Coverage reports
+coverage/
+htmlcov/
+.coverage
+
+# Python cache
+.mypy_cache/
+.pytest_cache/
+
+# System files
+.DS_Store
+Thumbs.db
+```
