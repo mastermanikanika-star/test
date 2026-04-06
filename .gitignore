@@ -1,14 +1,35 @@
-*.bat.bak
-*.tmp
+# Environment
+.env
+.env.local
+*.env.*
+
+# Logs and temp files
 *.log
-.DS_Store
-Thumbs.db
+*.tmp
+*.swp
+
+# Editors
 .vscode/
 .idea/
-*.swp
-*.swo
-*.pyc
+
+# System files
+.DS_Store
+Thumbs.db
+
+# Dependencies
+node_modules/
+venv/
+.venv/
 __pycache__/
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+target/
+.gradle/
+
+# Compiled files
+*.pyc
 *.class
 *.o
 *.exe
@@ -17,21 +38,13 @@ __pycache__/
 *.a
 *.obj
 *.out
-node_modules/
-venv/
-.venv/
-.mypy_cache/
-.pytest_cache/
-dist/
-build/
-target/
-.gradle/
-*.env
-*.env.local
-.env.*
+
+# Coverage
 coverage/
 htmlcov/
 .coverage
+
+# Compressed files
 *.zip
 *.gz
 *.tar
@@ -54,9 +67,3 @@ htmlcov/
 *.tar.bz2
 *.tar.xz
 *.tar.zst
-*.png
-*.jpg
-*.jpeg
-*.bmp
-*.gif
-*.webm
