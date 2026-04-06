@@ -18,7 +18,7 @@ set "TEMP_DIR=%TEMP%\%APP_NAME%_Installer"
 set "SOURCE_FILE=%TEMP_DIR%\app_source.py"
 set "DIST_EXE=%TEMP_DIR%\dist\%APP_NAME%.exe"
 set "VERSION_FILE=%INSTALL_DIR%\version.xml"
-set "CURRENT_VERSION=1.0.0"
+set "CURRENT_VERSION=1.0.1"
 
 :: Create Temp Directory
 if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
@@ -130,14 +130,21 @@ if not exist "%SOURCE_FILE%" (
 :: Step 4: Compile to EXE
 :: -----------------------------------------------------------------------------
 echo [4/6] Compiling application to executable...
-pyinstaller --onefile --windowed --name "%APP_NAME%" --distpath "%TEMP_DIR%\dist" --workpath "%TEMP_DIR%\build" --specpath "%TEMP_DIR%" "%SOURCE_FILE%"
+echo Running PyInstaller...
+pyinstaller --onefile --windowed --name "%APP_NAME%" --distpath "%TEMP_DIR%\dist" --workpath "%TEMP_DIR%\build" --specpath "%TEMP_DIR%" "%SOURCE_FILE%" 2>&1
 
 if not exist "%DIST_EXE%" (
     echo ERROR: Compilation failed. Check logs above.
+    echo Checking build log files...
+    if exist "%TEMP_DIR%\build\%APP_NAME%\warn-%APP_NAME%.txt" (
+        type "%TEMP_DIR%\build\%APP_NAME%\warn-%APP_NAME%.txt"
+    )
     pause
     goto Cleanup
 )
 echo Compilation successful.
+echo EXE location: %DIST_EXE%
+for %%I in ("%DIST_EXE%") do echo EXE size: %%~zI bytes
 
 :: -----------------------------------------------------------------------------
 :: Step 5: Install to Program Files & Create Shortcuts
@@ -163,6 +170,15 @@ if not exist "%INSTALL_DIR%\%APP_NAME%.exe" (
     goto Cleanup
 )
 
+:: Verify file size matches
+for %%I in ("%INSTALL_DIR%\%APP_NAME%.exe") do set "INSTALLED_SIZE=%%~zI"
+echo Installed EXE size: %INSTALLED_SIZE% bytes
+if "%INSTALLED_SIZE%"=="0" (
+    echo ERROR: Installed executable is empty.
+    pause
+    goto Cleanup
+)
+
 echo Executable copied successfully.
 
 :: Create version.xml file
@@ -176,6 +192,13 @@ echo     ^<install_date^>%date% %time%^</install_date^>
 echo     ^<executable^>%INSTALL_DIR%\%APP_NAME%.exe^</executable^>
 echo ^</application^>
 ) > "%VERSION_FILE%"
+
+:: Verify the version file was created successfully
+if not exist "%VERSION_FILE%" (
+    echo ERROR: Failed to create version file.
+    pause
+    goto Cleanup
+)
 echo Version file created: %VERSION_FILE%
 
 :: Create Start Menu Shortcut
@@ -209,12 +232,35 @@ echo ==========================================
 :: Launch the application
 echo Launching %APP_NAME%...
 timeout /t 2 /nobreak >nul
-if exist "%INSTALL_DIR%\%APP_NAME%.exe" (
-    start "" "%INSTALL_DIR%\%APP_NAME%.exe"
-    echo Application launched successfully.
-) else (
-    echo ERROR: Could not find the application executable to launch.
+
+:: Verify executable exists and is valid before launching
+if not exist "%INSTALL_DIR%\%APP_NAME%.exe" (
+    echo ERROR: Could not find the application executable.
     echo Please check: %INSTALL_DIR%\%APP_NAME%.exe
+    goto EndInstall
+)
+
+:: Check file size to ensure it's not empty or corrupted
+for %%I in ("%INSTALL_DIR%\%APP_NAME%.exe") do set "EXE_SIZE=%%~zI"
+if "%EXE_SIZE%"=="0" (
+    echo ERROR: The executable file is empty or corrupted.
+    goto EndInstall
+)
+
+echo Starting %APP_NAME% from %INSTALL_DIR%\%APP_NAME%.exe...
+start "" "%INSTALL_DIR%\%APP_NAME%.exe"
+
+:EndInstall
+echo ==========================================
+echo  Installation Complete!
+echo  Location: %INSTALL_DIR%
+echo  Version: %CURRENT_VERSION%
+echo ==========================================
+if "%EXE_SIZE%"=="" (
+    echo WARNING: Application may not have launched correctly.
+    echo Please try running it manually from the Start Menu or Desktop.
+) else (
+    echo Application launched successfully.
 )
 
 goto Cleanup
