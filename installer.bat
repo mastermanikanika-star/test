@@ -18,7 +18,7 @@ set "TEMP_DIR=%TEMP%\%APP_NAME%_Installer"
 set "SOURCE_FILE=%TEMP_DIR%\app_source.py"
 set "DIST_EXE=%TEMP_DIR%\dist\%APP_NAME%.exe"
 set "VERSION_FILE=%INSTALL_DIR%\version.xml"
-set "CURRENT_VERSION=1.0.3"
+set "CURRENT_VERSION=1.0.4"
 
 :: Create Temp Directory
 if not exist "%TEMP_DIR%" mkdir "%TEMP_DIR%"
@@ -96,29 +96,9 @@ if %errorLevel% neq 0 (
 :: -----------------------------------------------------------------------------
 echo [3/6] Extracting application source code...
 
-:: Use PowerShell to extract the embedded Python code by writing script line-by-line
-set "PS_SCRIPT=%TEMP_DIR%\extract.ps1"
-del /q "%PS_SCRIPT%" 2>nul
-
-echo $batFile = '%~f0' >> "%PS_SCRIPT%"
-echo $sourceFile = '%SOURCE_FILE%' >> "%PS_SCRIPT%"
-echo $content = Get-Content $batFile -Raw -Encoding UTF8 >> "%PS_SCRIPT%"
-echo $startMarker = '__PYTHON_SOURCE_START__' >> "%PS_SCRIPT%"
-echo $endMarker = '__PYTHON_SOURCE_END__' >> "%PS_SCRIPT%"
-echo $startIndex = $content.IndexOf($startMarker) >> "%PS_SCRIPT%"
-echo $endIndex = $content.IndexOf($endMarker) >> "%PS_SCRIPT%"
-echo if ($startIndex -ge 0 -and $endIndex -gt $startIndex) { >> "%PS_SCRIPT%"
-echo     $codeStart = $startIndex + $startMarker.Length >> "%PS_SCRIPT%"
-echo     $codeLength = $endIndex - $codeStart >> "%PS_SCRIPT%"
-echo     $code = $content.Substring($codeStart, $codeLength) >> "%PS_SCRIPT%"
-echo     Set-Content -Path $sourceFile -Value $code -Encoding UTF8 -NoNewline >> "%PS_SCRIPT%"
-echo     Write-Host 'Source code extracted successfully.' >> "%PS_SCRIPT%"
-echo } else { >> "%PS_SCRIPT%"
-echo     Write-Error 'Could not find source code markers in batch file.' >> "%PS_SCRIPT%"
-echo     exit 1 >> "%PS_SCRIPT%"
-echo } >> "%PS_SCRIPT%"
-
-powershell -ExecutionPolicy Bypass -File "%PS_SCRIPT%"
+:: Use PowerShell to extract the embedded Python code directly without creating a separate script file
+powershell -ExecutionPolicy Bypass -Command ^
+    "$batFile = '%~f0'; $sourceFile = '%SOURCE_FILE%'; $content = Get-Content $batFile -Raw -Encoding UTF8; $startMarker = '__PYTHON_SOURCE_START__'; $endMarker = '__PYTHON_SOURCE_END__'; $startIndex = $content.IndexOf($startMarker); $endIndex = $content.IndexOf($endMarker); if ($startIndex -ge 0 -and $endIndex -gt $startIndex) { $codeStart = $startIndex + $startMarker.Length; $codeLength = $endIndex - $codeStart; $code = $content.Substring($codeStart, $codeLength); Set-Content -Path $sourceFile -Value $code -Encoding UTF8 -NoNewline; Write-Host 'Source code extracted successfully.' } else { Write-Error 'Could not find source code markers in batch file.'; exit 1 }"
 
 if not exist "%SOURCE_FILE%" (
     echo ERROR: Failed to extract source code.
