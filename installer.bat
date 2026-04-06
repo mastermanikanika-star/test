@@ -76,22 +76,7 @@ if %errorLevel% neq 0 (
 echo [3/5] Extracting application source code...
 
 :: Use PowerShell to robustly extract the embedded Python code
-powershell -Command ^
-    "$content = Get-Content '%~f0' -Raw; ^
-    $startMarker = '__PYTHON_SOURCE_START__'; ^
-    $endMarker = '__PYTHON_SOURCE_END__'; ^
-    $startIndex = $content.IndexOf($startMarker); ^
-    $endIndex = $content.IndexOf($endMarker); ^
-    if ($startIndex -ge 0 -and $endIndex -gt $startIndex) { ^
-        $codeStart = $startIndex + $startMarker.Length; ^
-        $codeLength = $endIndex - $codeStart; ^
-        $code = $content.Substring($codeStart, $codeLength); ^
-        Set-Content -Path '%SOURCE_FILE%' -Value $code -Encoding UTF8; ^
-        Write-Host 'Source code extracted successfully.'; ^
-    } else { ^
-        Write-Error 'Could not find source code markers in batch file.'; ^
-        exit 1 ^
-    }"
+powershell -Command "$content = Get-Content '%~f0' -Raw; $startMarker = '__PYTHON_SOURCE_START__'; $endMarker = '__PYTHON_SOURCE_END__'; $startIndex = $content.IndexOf($startMarker); $endIndex = $content.IndexOf($endMarker); if ($startIndex -ge 0 -and $endIndex -gt $startIndex) { $codeStart = $startIndex + $startMarker.Length; $codeLength = $endIndex - $codeStart; $code = $content.Substring($codeStart, $codeLength); Set-Content -Path '%SOURCE_FILE%' -Value $code -Encoding UTF8; Write-Host 'Source code extracted successfully.' } else { Write-Error 'Could not find source code markers in batch file.'; exit 1 }"
 
 if not exist "%SOURCE_FILE%" (
     echo ERROR: Failed to extract source code.
